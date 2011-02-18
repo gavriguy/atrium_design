@@ -1,0 +1,112 @@
+<?php
+
+include_once('atrium_design.features.inc');
+
+/**
+ * Implementation of hook_menu().
+ */
+function atrium_design_menu() {
+  $items = array();
+  $items['node/%node/screenshot'] = array(
+    'title' => 'Screenshot',
+    'page callback' => 'atrium_design_load_screenshot',
+    'page arguments' => array(1, 'node'),
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 101,
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function atrium_design_theme($existing, $type, $theme, $path) {
+  return array(
+    'node_design_screenshot' => array(
+      'arguments' => array('object' => FALSE), 
+      'template' => 'node-design-screenshot',
+    ), 
+  );
+}
+
+
+/**
+ * Implementation of hook_block().
+ */
+function atrium_design_block($op = 'list', $delta = 0, $edit = array()) {
+  switch ($op) {
+    case 'list':
+      $blocks = array();
+      $blocks['screenshots_navigator'] = array(
+        'info' => t('Screenshots Navigator'),
+        'cache' => BLOCK_NO_CACHE,
+        'admin' => TRUE
+      );
+      return $blocks;
+    case 'view':
+      switch ($delta) {
+        case 'screenshots_navigator':
+          $block = array(
+            'subject' => t('Screenshots Navigator'), 
+            'content' => atrium_design_screenshots_navigator_block(),
+          );
+          break;
+      }
+     
+      return $block;    
+  }
+}
+
+
+function template_preprocess_node_design_screenshot(&$variables) {
+  template_preprocess_page($variables);
+  $screenshots_arr = $variables['object']->field_screenshot;
+  $flag = (is_numeric($index = $_GET['index']) && $index < count($screenshots_arr));
+  if (!$flag) {
+    $index = 0;
+  }
+  $image = theme('image', $screenshots_arr[$index]['filepath'], $screenshots_arr[$index]['data']['alt'], $screenshots_arr[$index]['data']['title'].' - Next');
+  $next = 0;
+  if ($index+1 < count($screenshots_arr)) {
+   $next = $index+1;
+  }
+  $variables['screenshot'] = l($image, $_GET['q'],array('html' => TRUE, 'query' => array('index'=> $next)));
+  //
+  //$variables['screenshot'] = $variables['object']->field_screenshot[$index]['filepath'];
+  
+}
+/**
+ * Implementation of hook_heme_registry_alter().
+ * @see http://snipplr.com/view/14456/drupal-hookmenu-redirect-to-a-themable-tpl-page/
+ */
+function atrium_design_theme_registry_alter(&$theme_registry) {
+  $theme_hook = 'page'; // my hook name
+    // Get the path to this module
+  $modulepath = drupal_get_path('module', 'atrium_design');
+    // Add the module path on top in the array of paths
+  array_unshift($theme_registry[$theme_hook]['theme paths'], $modulepath);
+}
+
+function atrium_design_load_screenshot($object, $name = NULL) {
+  print theme('node_design_screenshot', $object);
+}
+
+function atrium_design_screenshots_navigator_block() {
+  if (arg(0) == 'node' && is_numeric(arg(1)) && arg(2) == 'screenshot') {
+    $node = node_load(arg(1));
+    $flag = (is_numeric($index = $_GET['index']) && $index < count($node->field_screenshot));
+    if (!$flag) {
+      $index = 0;
+    }
+    $description = $node->field_screenshot[$index]['data']['description'];
+    $title = $node->field_screenshot[$index]['data']['title'];
+    $output = '';
+    $output .= '<h3>'.l('Back To Node View', drupal_get_path_alias('node/'. $node->nid)).'</h3>';
+    $output .= '<h4>'.$title.'</h4>';
+    $output .= '<p>'.$description.'</p>';
+  }
+  
+  return $output;
+}
